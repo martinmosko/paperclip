@@ -120,6 +120,10 @@ describe("managed install commands", () => {
         fs.writeFileSync(path.join(checkout, "cli", "package.json"), JSON.stringify({ version: "0.3.1" }));
         fs.mkdirSync(path.join(checkout, "scripts"), { recursive: true });
         fs.writeFileSync(path.join(checkout, "scripts", "release-package-manifest.json"), JSON.stringify(packages.map(({ dir, name }) => ({ dir, name }))));
+        fs.mkdirSync(path.join(checkout, "skills", "paperclip"), { recursive: true });
+        fs.writeFileSync(path.join(checkout, "skills", "paperclip", "SKILL.md"), "# Paperclip\n");
+        fs.mkdirSync(path.join(checkout, "packages", "adapters", "claude-local"), { recursive: true });
+        fs.mkdirSync(path.join(checkout, "packages", "adapters", "codex-local"), { recursive: true });
         for (const workspacePackage of packages) {
           fs.mkdirSync(path.join(checkout, workspacePackage.dir), { recursive: true });
           fs.writeFileSync(path.join(checkout, workspacePackage.dir, "package.json"), JSON.stringify(workspacePackage.packageJson));
@@ -162,8 +166,11 @@ describe("managed install commands", () => {
     expect(runCommand.mock.calls.filter(([command, args]) => command === "curl" && args.includes("--output"))).toHaveLength(1);
     expect(runCommand.mock.calls.filter(([command, args]) => command === "corepack" && args[1] === "install")).toHaveLength(1);
     expect(runCommand.mock.calls.filter(([command, args]) => command === "corepack" && args.includes("pack"))).toHaveLength(2);
+    expect(runCommand.mock.calls.filter(([command, args]) => command === process.execPath && args[0]?.endsWith("release-package-map.mjs") && args.slice(1).join(" ") === "set-version 0.3.1")).toHaveLength(1);
     expect(runCommand.mock.calls.filter(([command, args]) => command === process.execPath && args[0]?.endsWith("prepare-bundled-package.mjs"))).toHaveLength(1);
     expect(runCommand.mock.calls.filter(([command, args]) => command === "npm" && args[0] === "pack")).toHaveLength(2);
+    expect(runCommand.mock.calls.find(([command, args]) => command === "npm" && args[0] === "pack" && args[1]?.includes("workspace-package-"))?.[1]).toContain("--ignore-scripts");
+    expect(runCommand.mock.calls.findIndex(([command, args]) => command === process.execPath && args[0]?.endsWith("release-package-map.mjs"))).toBeGreaterThan(runCommand.mock.calls.findIndex(([command, args]) => command === "corepack" && args.includes("@paperclipai/server...")));
     const installCall = runCommand.mock.calls.find(([command, args]) => command === "npm" && args[0] === "install");
     expect(installCall?.[1].filter((arg) => arg.endsWith(".tgz"))).toHaveLength(4);
   });
@@ -178,7 +185,7 @@ describe("managed install commands", () => {
       file === "corepack" ||
       (file === "npm" && args[0] === "pack") ||
       (file === process.execPath && args[0]?.endsWith("prepare-bundled-package.mjs")));
-    expect(buildCalls).toHaveLength(9);
+    expect(buildCalls).toHaveLength(10);
     for (const call of buildCalls) {
       const env = call[2]?.env;
       expect(env, `${call[0]} ${call[1].join(" ")} must run with an explicit env`).toBeDefined();
@@ -186,6 +193,8 @@ describe("managed install commands", () => {
     }
     const uiPackCall = buildCalls.find(([file, , options]) => file === "corepack" && options?.env?.PAPERCLIP_RELEASE_REUSE_UI_DIST === "1");
     expect(uiPackCall).toBeDefined();
+    const uiPrepCall = buildCalls.find(([file, args]) => file === "bash" && args[0] === "scripts/prepare-server-ui-dist.sh");
+    expect(uiPrepCall?.[2]?.env?.PAPERCLIP_RELEASE_REUSE_UI_DIST).toBe("1");
   });
 
   it("resolves the complete server workspace dependency closure in dependency order", () => {
