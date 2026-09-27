@@ -78,6 +78,15 @@ Managed installs pin the validated Node executable in the `paperclipai` shim
 and prepend its directory to `PATH` for child tools, including ACP servers with
 an `/usr/bin/env node` shebang. Re-run the installer using the supported
 Node runtime after changing runtime installations, then restart the service.
+On macOS, the managed LaunchAgent gives the server and its local child processes
+the fixed tool path
+`/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`. It does not
+load shell startup files or include `~/.local/bin`, so tools such as Codex resolve
+directly from Homebrew or the system path instead of a user-level wrapper. The
+managed shim still prepends its pinned Node directory before starting Paperclip.
+Use an explicit adapter command when a local tool is intentionally installed
+somewhere else; remote execution environments continue to provide their own
+`PATH`.
 For example, put the supported Node's bin directory first on `PATH` and run
 `npx paperclipai@latest install --yes`. Do not use the old managed shim to
 re-pin Node: it intentionally continues launching its previously pinned runtime.

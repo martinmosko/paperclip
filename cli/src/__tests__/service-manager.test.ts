@@ -62,6 +62,9 @@ describe("service definition generation", () => {
     expect(plist).toContain("<key>RunAtLoad</key><true/>");
     expect(plist).toContain("<key>KeepAlive</key><true/>");
     expect(plist).toContain("service.err.log");
+    const servicePath = plist.match(/<key>PATH<\/key><string>([^<]+)<\/string>/)?.[1];
+    expect(servicePath).toBe("/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin");
+    expect(servicePath).not.toContain(".local/bin");
   });
 });
 
